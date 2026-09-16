@@ -91,7 +91,7 @@ test('não consulta geocoding quando a busca contém apenas espaços', async ({ 
   await page.getByRole('searchbox', { name: 'Cidade' }).fill('   ');
   await page.getByRole('button', { name: 'Buscar' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Nenhuma cidade encontrada' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Nenhuma cidade selecionada' })).toBeVisible();
   expect(geocodingRequestCount).toBe(0);
 });
 
