@@ -1,28 +1,48 @@
-import type { ForecastDay, Unit } from '../types/weather';
+import { memo } from 'react';
+import { formatDayLabel } from '../lib/format';
 import { formatTemperature } from '../lib/temperature';
-import { getWeatherIcon, getWeatherLabel } from '../lib/weatherCodes';
-import { getDayLabel, getShortDate } from '../lib/format';
+import { getWeatherCodeInfo } from '../lib/weatherCodes';
+import type { ForecastDay, Unit } from '../types/weather';
 
 interface ForecastCardProps {
   day: ForecastDay;
-  index: number;
+  index?: number;
   unit: Unit;
 }
 
-/** Card de um dia da previsão. */
-export default function ForecastCard({ day, index, unit }: ForecastCardProps) {
+function displayProbability(probability?: number): string {
+  return probability === undefined || !Number.isFinite(probability) ? '—' : `${probability}%`;
+}
+
+function ForecastCard({ day, index, unit }: ForecastCardProps) {
+  const condition = getWeatherCodeInfo(day.weatherCode);
+  const dayLabel = formatDayLabel(day.date, index);
+
   return (
-    <li className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
-      <p className="font-semibold">{getDayLabel(day.date, index)}</p>
-      <p className="text-xs text-white/50">{getShortDate(day.date)}</p>
-      <span aria-hidden="true" className="text-3xl" title={getWeatherLabel(day.weatherCode)}>
-        {getWeatherIcon(day.weatherCode)}
-      </span>
-      <p className="text-sm">
-        <span className="font-semibold">{formatTemperature(day.max, unit)}</span>{' '}
-        <span className="text-white/50">{formatTemperature(day.min, unit)}</span>
+    <article
+      aria-label={`Previsão para ${dayLabel}`}
+      className="flex min-h-48 min-w-0 flex-col rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md"
+    >
+      <h3 className="truncate text-sm font-semibold capitalize text-white">{dayLabel}</h3>
+      <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-2 text-center">
+        <span aria-hidden="true" className="text-4xl" role="img">
+          {condition.icon}
+        </span>
+        <span className="text-xs text-white/80">{condition.label}</span>
+      </div>
+      <div className="mt-4 flex items-baseline justify-center gap-2">
+        <span className="font-semibold text-white">
+          {formatTemperature(day.maximumTemperatureCelsius, unit)}
+        </span>
+        <span className="text-sm text-white/75">
+          {formatTemperature(day.minimumTemperatureCelsius, unit)}
+        </span>
+      </div>
+      <p className="mt-3 text-center text-xs text-white/80">
+        Chuva: {displayProbability(day.precipitationProbabilityPercent)}
       </p>
-      <p className="text-xs text-accent-400">💧 {day.precipitationProbability}%</p>
-    </li>
+    </article>
   );
 }
+
+export default memo(ForecastCard);
