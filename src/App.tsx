@@ -1,79 +1,76 @@
-import { useState } from 'react';
-import type { Unit } from './types/weather';
-import { useWeather } from './hooks/useWeather';
-import SearchBar from './components/SearchBar';
-import UnitToggle from './components/UnitToggle';
+import { useEffect, useRef, useState } from 'react';
 import CurrentWeather from './components/CurrentWeather';
 import ForecastList from './components/ForecastList';
-import LoadingState from './components/states/LoadingState';
-import ErrorState from './components/states/ErrorState';
+import LocationResults from './components/LocationResults';
+import SearchBar from './components/SearchBar';
 import EmptyState from './components/states/EmptyState';
+import ErrorState from './components/states/ErrorState';
+import LoadingState from './components/states/LoadingState';
+import UnitToggle from './components/UnitToggle';
+import { useWeather } from './hooks/useWeather';
+import type { Unit } from './types/weather';
 
-/**
- * WeatherView — aplicação completa de previsão do tempo.
- *
- * Construída ao longo do treinamento de Spec-Driven Development com GitHub
- * Copilot, do briefing à entrega.
- */
 export default function App() {
-  const { status, data, error, query, search, retry } = useWeather();
   const [unit, setUnit] = useState<Unit>('celsius');
+  const contentRef = useRef<HTMLElement>(null);
 
-  return (
-    <div className="min-h-screen text-white">
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="text-2xl text-sun">
-              ☀️
-            </span>
-            <span className="text-lg font-bold">WeatherView</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <SearchBar onSearch={search} disabled={status === 'loading'} />
-            <UnitToggle unit={unit} onChange={setUnit} />
-          </div>
-        </div>
-      </header>
+  const { cities, data, error, retry, search, selectCity, status } = useWeather();
 
-      <main className="mx-auto max-w-5xl space-y-8 px-4 py-8">
-        {status === 'idle' && (
-          <EmptyState
-            title="Busque uma cidade para começar"
-            hint="Ex.: Seattle, Lisboa, São Paulo…"
-          />
-        )}
+  useEffect(() => {
+    if (status !== 'idle' && status !== 'loading') {
+      contentRef.current?.focus({ preventScroll: true });
+    }
+  }, [status]);
 
-        {status === 'loading' && <LoadingState />}
-
-        {status === 'empty' && (
-          <EmptyState
-            title={`Nenhuma cidade encontrada para "${query}"`}
-            hint="Verifique a grafia e tente novamente."
-          />
-        )}
-
-        {status === 'error' && error && <ErrorState message={error} onRetry={retry} />}
-
-        {status === 'success' && data && (
-          <>
+  function renderContent() {
+    switch (status) {
+      case 'loading':
+        return <LoadingState />;
+      case 'empty':
+        return <EmptyState title="Nenhuma cidade encontrada" />;
+      case 'error':
+        return <ErrorState message={error ?? undefined} onRetry={retry} />;
+      case 'success':
+        return data ? (
+          <div className="space-y-6">
             <CurrentWeather city={data.city} current={data.current} unit={unit} />
             <ForecastList forecast={data.forecast} unit={unit} />
-          </>
-        )}
-      </main>
+          </div>
+        ) : null;
+      default:
+        return <EmptyState />;
+    }
+  }
 
-      <footer className="py-8 text-center text-sm text-white/40">
-        Dados por{' '}
-        <a
-          href="https://open-meteo.com/"
-          target="_blank"
-          rel="noreferrer"
-          className="text-accent-400 hover:underline"
+  return (
+    <main className="min-h-screen bg-night-900 px-4 py-6 text-white sm:px-6 sm:py-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+        <header className="flex flex-col gap-6">
+          <div className="flex items-start justify-between gap-3 sm:items-center sm:gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-accent-400">
+                Clima simples, onde você estiver
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Céu Aberto</h1>
+            </div>
+            <div className="shrink-0">
+              <UnitToggle onChange={setUnit} unit={unit} />
+            </div>
+          </div>
+          <SearchBar disabled={status === 'loading'} onSearch={search} />
+          <LocationResults cities={cities} disabled={status === 'loading'} onSelect={selectCity} />
+        </header>
+
+        <section
+          aria-busy={status === 'loading'}
+          aria-live="polite"
+          aria-label="Conteúdo meteorológico"
+          ref={contentRef}
+          tabIndex={-1}
         >
-          Open-Meteo
-        </a>
-      </footer>
-    </div>
+          {renderContent()}
+        </section>
+      </div>
+    </main>
   );
 }
