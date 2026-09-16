@@ -52,6 +52,28 @@ function optionalFiniteNumber(value: number | null | undefined): number | undefi
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+function validCoordinate(latitude: number, longitude: number): boolean {
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
+}
+
+function boundedOptionalNumber(
+  value: number | null | undefined,
+  minimum: number,
+  maximum: number,
+): number | undefined {
+  const normalized = optionalFiniteNumber(value);
+  return normalized !== undefined && normalized >= minimum && normalized <= maximum
+    ? normalized
+    : undefined;
+}
+
 function requiredFiniteNumber(value: number | null | undefined): number {
   const normalized = optionalFiniteNumber(value);
 
@@ -115,7 +137,12 @@ export async function searchCities(name: string): Promise<City[]> {
 
   const data = await parseJson<GeocodingResponse>(response);
 
+  if (data.results !== undefined && !Array.isArray(data.results)) {
+    throw new WeatherServiceError('Resposta inválida da API.');
+  }
+
   return (data.results ?? [])
+    .slice(0, 5)
     .filter(
       (
         result,
@@ -140,6 +167,10 @@ export async function searchCities(name: string): Promise<City[]> {
 }
 
 export async function getWeather(city: City): Promise<WeatherData> {
+  if (!validCoordinate(city.latitude, city.longitude)) {
+    throw new WeatherServiceError('Coordenadas da cidade inválidas.');
+  }
+
   const params = new URLSearchParams({
     latitude: String(city.latitude),
     longitude: String(city.longitude),
@@ -192,7 +223,7 @@ export async function getWeather(city: City): Promise<WeatherData> {
     temperatureCelsius: requiredFiniteNumber(current.temperature_2m),
     apparentTemperatureCelsius: requiredFiniteNumber(current.apparent_temperature),
     weatherCode: requiredFiniteNumber(current.weather_code),
-    humidityPercent: optionalFiniteNumber(current.relative_humidity_2m),
+    humidityPercent: boundedOptionalNumber(current.relative_humidity_2m, 0, 100),
     windSpeedKmh: optionalFiniteNumber(current.wind_speed_10m),
     precipitationMm: optionalFiniteNumber(current.precipitation) ?? 0,
     pressureHpa: optionalFiniteNumber(current.surface_pressure),
@@ -204,8 +235,10 @@ export async function getWeather(city: City): Promise<WeatherData> {
     minimumTemperatureCelsius: requiredFiniteNumber(daily.temperature_2m_min![index]),
     maximumTemperatureCelsius: requiredFiniteNumber(daily.temperature_2m_max![index]),
     precipitationMm: optionalFiniteNumber(daily.precipitation_sum?.[index]) ?? 0,
-    precipitationProbabilityPercent: optionalFiniteNumber(
+    precipitationProbabilityPercent: boundedOptionalNumber(
       daily.precipitation_probability_max?.[index],
+      0,
+      100,
     ),
   }));
 

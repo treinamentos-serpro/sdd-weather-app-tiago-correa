@@ -39,6 +39,7 @@ export function useWeather(): UseWeatherResult {
   const [query, setQuery] = useState('');
   const requestIdRef = useRef(0);
   const lastOperationRef = useRef<WeatherOperation | null>(null);
+  const retryCountRef = useRef(0);
 
   async function loadWeather(city: City, requestId: number): Promise<void> {
     try {
@@ -61,9 +62,13 @@ export function useWeather(): UseWeatherResult {
     }
   }
 
-  async function search(name: string): Promise<void> {
+  async function search(name: string, resetRetry = true): Promise<void> {
     const trimmedName = name.trim();
     const requestId = ++requestIdRef.current;
+
+    if (resetRetry) {
+      retryCountRef.current = 0;
+    }
 
     lastOperationRef.current = { type: 'search', name: trimmedName };
     setQuery(trimmedName);
@@ -103,8 +108,12 @@ export function useWeather(): UseWeatherResult {
     }
   }
 
-  async function selectCity(city: City): Promise<void> {
+  async function selectCity(city: City, resetRetry = true): Promise<void> {
     const requestId = ++requestIdRef.current;
+
+    if (resetRetry) {
+      retryCountRef.current = 0;
+    }
 
     lastOperationRef.current = { type: 'select', city };
     setQuery(city.name);
@@ -121,12 +130,18 @@ export function useWeather(): UseWeatherResult {
       return;
     }
 
-    if (operation.type === 'search') {
-      await search(operation.name);
+    if (retryCountRef.current >= 2) {
       return;
     }
 
-    await selectCity(operation.city);
+    retryCountRef.current += 1;
+
+    if (operation.type === 'search') {
+      await search(operation.name, false);
+      return;
+    }
+
+    await selectCity(operation.city, false);
   }
 
   return {

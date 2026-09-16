@@ -74,6 +74,15 @@ describe('searchCities', () => {
     await expect(searchCities('Sao Paulo')).resolves.toEqual([]);
   });
 
+  it('rejeita results com formato inválido', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ results: {} })));
+
+    await expect(searchCities('Sao Paulo')).rejects.toMatchObject({
+      name: 'WeatherServiceError',
+      message: 'Resposta inválida da API.',
+    });
+  });
+
   it('lança WeatherServiceError em HTTP não-ok', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({}, false)));
 
@@ -111,6 +120,16 @@ describe('searchCities', () => {
 });
 
 describe('getWeather', () => {
+  it('rejeita coordenadas fora dos limites antes da rede', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getWeather({ ...city, latitude: 91 })).rejects.toMatchObject({
+      name: 'WeatherServiceError',
+      message: 'Coordenadas da cidade inválidas.',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it('mapeia current e cinco itens de daily', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       response({
